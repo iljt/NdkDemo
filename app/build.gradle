@@ -1,0 +1,82 @@
+plugins {
+    id 'com.android.application'
+    id 'org.jetbrains.kotlin.android'
+}
+
+android {
+    namespace 'com.example.ndkdemo'
+    compileSdk 33
+
+    defaultConfig {
+        applicationId "com.example.ndkdemo"
+        minSdk 24
+        targetSdk 33
+        versionCode 1
+        versionName "1.0"
+
+        testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        //defaultConfig块中也有externalNativeBuild块 这里是配置cmake具体的构建参数用的
+        //build或者运行一下工程F:\as2\NdkDemo\app\.cxx\Debug\6f2p73e4\arm64-v8a\metadata_generation_command.txt下可以看到配置的参数：-DCMAKE_CXX_FLAGS=-frtti -fexceptions -std=c++14和 -DANDROID_STL=c++_shared
+       externalNativeBuild {
+            cmake {
+                //cppFlags为C/C++预处理阶段的选项 这里配置C++支持rtti和异常 C++标准使用14
+               // cppFlags "-frtti -fexceptions -std=c++14"
+                //指定C++标准库类型是动态库
+                //在配置“arguments '-DANDROID_STL=c++_shared'”下运行下工程生成apk：生成了libc++_shared.so,可以看到C++标准库是以动态库形式在apk中的.
+              //  arguments '-DANDROID_STL=c++_shared'
+                abiFilters "arm64-v8a"
+            }
+        }
+        //不同的cpu支持不同的指令集，每种指令集有不同的规范，这个规范就是ABI，一个cpu只能读取符合它的规范的机器代码,所以对于不同的cpu，同一套代码需要编译成不同的机器码。
+       //打包时包含的cpu架构
+       ndk {
+            abiFilters "arm64-v8a" //*,"armeabi-v7a"*//*
+        }
+
+    }
+
+    sourceSets {
+        main {
+            jniLibs.srcDirs = ['src/main/jniLibs']
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+    kotlinOptions {
+        jvmTarget = '1.8'
+    }
+    //ndk是如何将Native代码打包到apk中的?
+    //我们知道Android的代码是使用Gradle进行构建的，所以猜测Native代码打包也是Gradle中处理
+    //cmake命令是集成在Gradle中的，这里的externalNativeBuild块主要是用来配置cmake的路径和版本以及cmake产出结果输出路径的的（官方文档有较详细的说明：CmakeOptions）。
+    // 当Gradle执行到externalNativeBuild时，就会执行里面的cmake命令，生成对应的Makfile，然后再生成动态库文件，然后再打包到apk中。
+    //这里指定了2个参数，path指定了CMakeLists.txt文件路径，version指定了使用cmake版本，这里version必须大于CMakeLists.txt中指定的cmake_minimum_required，不然就会出错。
+    externalNativeBuild {
+        cmake {
+            path file('src/main/cpp/CMakeLists.txt')
+            version '3.22.1'
+           // version '3.10.2'//改为比3.22.1 版本低的报错 CMake 3.22.1 or higher is required.  You are running version 3.10.2
+        }
+    }
+    buildFeatures {
+        viewBinding true
+    }
+}
+
+dependencies {
+    implementation 'androidx.core:core-ktx:1.8.0'
+    implementation 'androidx.appcompat:appcompat:1.4.1'
+    implementation 'com.google.android.material:material:1.5.0'
+    implementation 'androidx.constraintlayout:constraintlayout:2.1.3'
+    testImplementation 'junit:junit:4.13.2'
+    androidTestImplementation 'androidx.test.ext:junit:1.1.3'
+    androidTestImplementation 'androidx.test.espresso:espresso-core:3.4.0'
+}
